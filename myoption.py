@@ -29,13 +29,13 @@ def find_box_spreads(df):
 
 def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Long"):
     if spread_type == "Long":
-        sign = 1
-        opposite_sign = -1
+        sign = 1  # Positive for long
+        opposite_sign = -1  # Negative for short
     elif spread_type == "Short":
-        sign = -1
-        opposite_sign = 1
+        sign = -1  # Negative for short
+        opposite_sign = 1  # Positive for long
 
-    # For Long Box Spread
+    # For Box Spreads
     for _, call in calls.iterrows():
         if remaining_quantities[call.name] * sign <= 0:
             continue  # Skip if no remaining quantity for this leg
@@ -75,7 +75,7 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                             'Sell Put Strike': matching_put_sell['strike'] if spread_type == "Long" else matching_put_buy['strike'],
                             'Buy Put Strike': matching_put_buy['strike'] if spread_type == "Long" else matching_put_sell['strike'],
                             'Underlying Price': call['underlying_price'],
-                            'Box Quantity': box_quantity,
+                            'Box Quantity': box_quantity * sign,  # Ensure correct sign for long/short
                             'Spread Type': f'{spread_type} Box Spread'
                         })
 
@@ -84,7 +84,6 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                         remaining_quantities[matching_call.name] += box_quantity * opposite_sign
                         remaining_quantities[matching_put_sell.name] += box_quantity * opposite_sign
                         remaining_quantities[matching_put_buy.name] -= box_quantity * sign
-
 
 # Test data with quantities that will produce both long and short spreads
 data = {
