@@ -80,16 +80,13 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                         })
 
                         # Deduct quantities for the legs used in the spread
-                        if spread_type == "Long":
-                            remaining_quantities[call.name] -= box_quantity * sign
-                            remaining_quantities[matching_call.name] += box_quantity * opposite_sign
-                            remaining_quantities[matching_put_sell.name] += box_quantity * opposite_sign
-                            remaining_quantities[matching_put_buy.name] -= box_quantity * sign
-                        elif spread_type == "Short":
-                            remaining_quantities[call.name] -= box_quantity * sign
-                            remaining_quantities[matching_call.name] += box_quantity * opposite_sign
-                            remaining_quantities[matching_put_sell.name] += box_quantity * opposite_sign
-                            remaining_quantities[matching_put_buy.name] -= box_quantity * sign
+                        remaining_quantities[call.name] -= box_quantity * sign
+                        remaining_quantities[matching_call.name] -= box_quantity * opposite_sign
+                        remaining_quantities[matching_put_sell.name] -= box_quantity * opposite_sign
+                        remaining_quantities[matching_put_buy.name] -= box_quantity * sign
+
+                        # After identifying a box spread, restart logic with updated quantities
+                        return
 
 # Test data with quantities that will produce both long and short spreads
 data = {
