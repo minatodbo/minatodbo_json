@@ -85,7 +85,7 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                         remaining_quantities[matching_put_sell.name] -= box_quantity * opposite_sign
                         remaining_quantities[matching_put_buy.name] -= box_quantity * sign
 
-                        # Restart the loop and recalculate based on updated quantities
+                        # Restart the loop with updated quantities after identifying the spread
                         return
 
 
