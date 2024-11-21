@@ -44,8 +44,9 @@ def find_box_spreads(df):
                             remaining_quantities[put_buy.name]
                         )
 
-                        if box_quantity >= 1:  # Valid box spread
-                            # Determine spread type (long or short box)
+                        # Ensure we have a valid box spread
+                        if box_quantity >= 1:
+                            # Determine spread type
                             spread_type = 'Long Box Spread' if remaining_quantities[call_buy.name] > 0 else 'Short Box Spread'
 
                             # Add to result
@@ -62,7 +63,7 @@ def find_box_spreads(df):
                                 'Spread Type': spread_type
                             })
 
-                            # Update remaining quantities
+                            # Deduct quantities from the legs
                             remaining_quantities[call_buy.name] -= box_quantity
                             remaining_quantities[call_sell.name] += box_quantity
                             remaining_quantities[put_sell.name] += box_quantity
