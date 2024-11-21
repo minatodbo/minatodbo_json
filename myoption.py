@@ -32,7 +32,7 @@ def find_box_spreads(df):
                         if put_buy['strike'] != call_sell['strike'] or remaining_quantities[put_buy.name] <= 0:
                             continue  # Skip if not matching the higher strike or no remaining long put quantity
 
-                        # Calculate the box quantity as the minimum available across the four legs (based on abs quantities)
+                        # Calculate the box quantity as the minimum available across the four legs
                         box_quantity = min(
                             abs(remaining_quantities[call_buy.name]),
                             abs(remaining_quantities[call_sell.name]),
@@ -84,7 +84,7 @@ def find_box_spreads(df):
                         if put_sell['strike'] != call_buy['strike'] or remaining_quantities[put_sell.name] >= 0:
                             continue  # Skip if not matching the higher strike or no remaining short put quantity
 
-                        # Calculate the box quantity as the minimum available across the four legs (based on abs quantities)
+                        # Calculate the box quantity as the minimum available across the four legs
                         box_quantity = min(
                             abs(remaining_quantities[call_sell.name]),
                             abs(remaining_quantities[call_buy.name]),
@@ -123,7 +123,7 @@ data = {
     'client': ['ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA'],
     'ticker': ['ABC', 'ABC', 'ABC', 'ABC', 'ABC', 'ABC', 'ABC', 'ABC'],
     'underlying_price': [100, 100, 100, 100, 100, 100, 100, 100],
-    'quantity': [-5, 5, 5, -5, 10, -10, -10, 10],
+    'quantity': [-5, 5, 5, -5, 10, -10, -10, 10],  # 5 for long and 10 for short
     'strike': [95, 105, 105, 95, 95, 105, 105, 95],
     'option_type': ['Call', 'Call', 'Put', 'Put', 'Call', 'Call', 'Put', 'Put'],
     'maturity': ['2024-12-31'] * 8,
