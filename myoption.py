@@ -32,12 +32,12 @@ def find_box_spreads(df):
                         if put_buy['strike'] != call_sell['strike'] or remaining_quantities[put_buy.name] <= 0:
                             continue  # Skip if not matching the higher strike or no remaining long put quantity
 
-                        # Calculate the box quantity as the minimum available across the four legs
+                        # Calculate the box quantity as the minimum available across the four legs (based on abs quantities)
                         box_quantity = min(
-                            remaining_quantities[call_buy.name],
+                            abs(remaining_quantities[call_buy.name]),
                             abs(remaining_quantities[call_sell.name]),
                             abs(remaining_quantities[put_sell.name]),
-                            remaining_quantities[put_buy.name]
+                            abs(remaining_quantities[put_buy.name])
                         )
 
                         # Add the long box spread to results
@@ -84,11 +84,11 @@ def find_box_spreads(df):
                         if put_sell['strike'] != call_buy['strike'] or remaining_quantities[put_sell.name] >= 0:
                             continue  # Skip if not matching the higher strike or no remaining short put quantity
 
-                        # Calculate the box quantity as the minimum available across the four legs
+                        # Calculate the box quantity as the minimum available across the four legs (based on abs quantities)
                         box_quantity = min(
                             abs(remaining_quantities[call_sell.name]),
-                            remaining_quantities[call_buy.name],
-                            remaining_quantities[put_buy.name],
+                            abs(remaining_quantities[call_buy.name]),
+                            abs(remaining_quantities[put_buy.name]),
                             abs(remaining_quantities[put_sell.name])
                         )
 
