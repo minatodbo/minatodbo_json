@@ -19,13 +19,13 @@ def find_box_spreads(df):
         print(f"Calls:\n{calls[['strike', 'quantity']]}")
         print(f"Puts:\n{puts[['strike', 'quantity']]}")
 
-        # ---- Identify Long Box Spreads ----
-        while identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Long"):
-            print(f"Remaining Quantities after identifying Long Box Spread:\n{remaining_quantities}\n")
+        # ---- Loop Until No More Box Spreads Can Be Identified ----
+        while True:
+            long_found = identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Long")
+            short_found = identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Short")
 
-        # ---- Identify Short Box Spreads ----
-        while identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Short"):
-            print(f"Remaining Quantities after identifying Short Box Spread:\n{remaining_quantities}\n")
+            if not (long_found or short_found):
+                break  # Exit if no more spreads are found
 
     return pd.DataFrame(boxes)
 
@@ -82,12 +82,16 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                             'Spread Type': f'{spread_type} Box Spread'
                         })
 
-                        # Update remaining quantities for the legs used in the spread
+                        # Debugging: Print quantities before update
                         print(f"Before Quantity Update:\n{remaining_quantities}")
+                        
+                        # Update remaining quantities for the legs used in the spread
                         remaining_quantities[call.name] -= box_quantity * sign
                         remaining_quantities[matching_call.name] -= box_quantity * opposite_sign
                         remaining_quantities[matching_put_sell.name] -= box_quantity * opposite_sign
                         remaining_quantities[matching_put_buy.name] -= box_quantity * sign
+                        
+                        # Debugging: Print quantities after update
                         print(f"After Quantity Update:\n{remaining_quantities}")
 
                         # Return True to signal that a spread was found
