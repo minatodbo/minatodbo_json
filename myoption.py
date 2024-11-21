@@ -8,9 +8,14 @@ def find_box_spreads(df):
     grouped = df.groupby(['client', 'ticker', 'maturity'])
 
     for (client, ticker, maturity), group in grouped:
+        print(f"\nProcessing group: {client}, {ticker}, {maturity}")
+
         # Separate calls and puts
         calls = group[group['option_type'] == 'Call'].sort_values('strike')
         puts = group[group['option_type'] == 'Put'].sort_values('strike')
+
+        print(f"Calls:\n{calls[['strike', 'quantity']]}")
+        print(f"Puts:\n{puts[['strike', 'quantity']]}")
 
         # ---- Identify Long Box Spreads ----
         for _, call_buy in calls.iterrows():
