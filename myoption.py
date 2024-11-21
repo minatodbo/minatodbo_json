@@ -84,7 +84,6 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                         remaining_quantities[matching_put_sell.name] += box_quantity * opposite_sign
                         remaining_quantities[matching_put_buy.name] -= box_quantity * sign
 
-
 # Test data with quantities that will produce both long and short spreads
 data = {
     'client': ['ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA', 'ClientA'],
