@@ -85,7 +85,7 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
                         remaining_quantities[matching_put_sell.name] -= box_quantity * opposite_sign
                         remaining_quantities[matching_put_buy.name] -= box_quantity * sign
 
-                        # After identifying a box spread, restart logic with updated quantities
+                        # Restart the process for the next available spread with updated quantities
                         return
 
 # Test data with quantities that will produce both long and short spreads
