@@ -10,6 +10,7 @@ def find_box_spreads(df):
     # Loop through each group
     for (client, ticker, maturity), group in grouped:
         print(f"\nProcessing group: {client}, {ticker}, {maturity}")
+        
         # Separate calls and puts
         calls = group[group['option_type'] == 'Call'].sort_values('strike')
         puts = group[group['option_type'] == 'Put'].sort_values('strike')
@@ -18,114 +19,70 @@ def find_box_spreads(df):
         print(f"Puts:\n{puts[['strike', 'quantity']]}")
 
         # ---- Identify Long Box Spreads ----
-        identify_long_spreads(client, ticker, maturity, calls, puts, remaining_quantities, boxes)
+        identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Long")
 
         # ---- Identify Short Box Spreads ----
-        identify_short_spreads(client, ticker, maturity, calls, puts, remaining_quantities, boxes)
+        identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Short")
 
     return pd.DataFrame(boxes)
 
 
-def identify_long_spreads(client, ticker, maturity, calls, puts, remaining_quantities, boxes):
-    for _, call_buy in calls.iterrows():
-        if remaining_quantities[call_buy.name] <= 0:
-            continue  # Skip if no remaining long call quantity
+def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities, boxes, spread_type="Long"):
+    if spread_type == "Long":
+        sign = 1
+        opposite_sign = -1
+    elif spread_type == "Short":
+        sign = -1
+        opposite_sign = 1
 
-        # Match a short call with a higher strike
-        for _, call_sell in calls.iterrows():
-            if call_sell['strike'] <= call_buy['strike'] or remaining_quantities[call_sell.name] >= 0:
-                continue  # Skip if not a higher strike or no remaining short call quantity
+    for _, call in calls.iterrows():
+        if remaining_quantities[call.name] * sign <= 0:
+            continue  # Skip if no remaining quantity for this leg
 
-            # Match a short put at the lower strike
-            for _, put_sell in puts.iterrows():
-                if put_sell['strike'] != call_buy['strike'] or remaining_quantities[put_sell.name] >= 0:
-                    continue  # Skip if not matching the lower strike or no remaining short put quantity
+        # Look for a matching opposite call (different strike)
+        for _, matching_call in calls.iterrows():
+            if matching_call['strike'] <= call['strike'] or remaining_quantities[matching_call.name] * opposite_sign <= 0:
+                continue  # Skip if matching call doesn't meet criteria
 
-                # Match a long put at the higher strike
-                for _, put_buy in puts.iterrows():
-                    if put_buy['strike'] != call_sell['strike'] or remaining_quantities[put_buy.name] <= 0:
-                        continue  # Skip if not matching the higher strike or no remaining long put quantity
+            # Look for matching puts for the opposite strike
+            for _, matching_put_sell in puts.iterrows():
+                if matching_put_sell['strike'] != call['strike'] or remaining_quantities[matching_put_sell.name] * opposite_sign <= 0:
+                    continue  # Skip if put doesn't meet criteria
 
-                    # Calculate the box quantity as the minimum available across the four legs
+                # Look for matching puts for the first strike
+                for _, matching_put_buy in puts.iterrows():
+                    if matching_put_buy['strike'] != matching_call['strike'] or remaining_quantities[matching_put_buy.name] * sign <= 0:
+                        continue  # Skip if put doesn't meet criteria
+
+                    # Calculate box spread quantity as the minimum available quantity across the legs
                     box_quantity = min(
-                        abs(remaining_quantities[call_buy.name]),
-                        abs(remaining_quantities[call_sell.name]),
-                        abs(remaining_quantities[put_sell.name]),
-                        abs(remaining_quantities[put_buy.name])
+                        abs(remaining_quantities[call.name]),
+                        abs(remaining_quantities[matching_call.name]),
+                        abs(remaining_quantities[matching_put_sell.name]),
+                        abs(remaining_quantities[matching_put_buy.name])
                     )
 
-                    # Add the long box spread to results if valid
+                    # Only add valid box spreads if the box quantity is positive
                     if box_quantity > 0:
-                        print(f"Identified Long Box Spread - Quantity: {box_quantity} | Strike: {call_buy['strike']} - {call_sell['strike']} & {put_sell['strike']} - {put_buy['strike']}")
+                        print(f"Identified {spread_type} Box Spread - Quantity: {box_quantity} | Strikes: {call['strike']} - {matching_call['strike']} & {matching_put_sell['strike']} - {matching_put_buy['strike']}")
                         boxes.append({
                             'Client': client,
                             'Ticker': ticker,
                             'Maturity': maturity,
-                            'Buy Call Strike': call_buy['strike'],
-                            'Sell Call Strike': call_sell['strike'],
-                            'Sell Put Strike': put_sell['strike'],
-                            'Buy Put Strike': put_buy['strike'],
-                            'Underlying Price': call_buy['underlying_price'],
+                            'Buy Call Strike': call['strike'],
+                            'Sell Call Strike': matching_call['strike'],
+                            'Sell Put Strike': matching_put_sell['strike'],
+                            'Buy Put Strike': matching_put_buy['strike'],
+                            'Underlying Price': call['underlying_price'],
                             'Box Quantity': box_quantity,
-                            'Spread Type': 'Long Box Spread'
+                            'Spread Type': f'{spread_type} Box Spread'
                         })
 
-                        # Deduct quantities from the legs
-                        remaining_quantities[call_buy.name] -= box_quantity
-                        remaining_quantities[call_sell.name] += box_quantity
-                        remaining_quantities[put_sell.name] += box_quantity
-                        remaining_quantities[put_buy.name] -= box_quantity
-
-
-def identify_short_spreads(client, ticker, maturity, calls, puts, remaining_quantities, boxes):
-    for _, call_sell in calls.iterrows():
-        if remaining_quantities[call_sell.name] >= 0:
-            continue  # Skip if no remaining short call quantity
-
-        # Match a long call with a higher strike
-        for _, call_buy in calls.iterrows():
-            if call_buy['strike'] <= call_sell['strike'] or remaining_quantities[call_buy.name] <= 0:
-                continue  # Skip if not a higher strike or no remaining long call quantity
-
-            # Match a long put at the lower strike
-            for _, put_buy in puts.iterrows():
-                if put_buy['strike'] != call_sell['strike'] or remaining_quantities[put_buy.name] <= 0:
-                    continue  # Skip if not matching the lower strike or no remaining long put quantity
-
-                # Match a short put at the higher strike
-                for _, put_sell in puts.iterrows():
-                    if put_sell['strike'] != call_buy['strike'] or remaining_quantities[put_sell.name] >= 0:
-                        continue  # Skip if not matching the higher strike or no remaining short put quantity
-
-                    # Calculate the box quantity as the minimum available across the four legs
-                    box_quantity = min(
-                        abs(remaining_quantities[call_sell.name]),
-                        abs(remaining_quantities[call_buy.name]),
-                        abs(remaining_quantities[put_buy.name]),
-                        abs(remaining_quantities[put_sell.name])
-                    )
-
-                    # Add the short box spread to results if valid
-                    if box_quantity > 0:
-                        print(f"Identified Short Box Spread - Quantity: {box_quantity} | Strike: {call_sell['strike']} - {call_buy['strike']} & {put_buy['strike']} - {put_sell['strike']}")
-                        boxes.append({
-                            'Client': client,
-                            'Ticker': ticker,
-                            'Maturity': maturity,
-                            'Buy Call Strike': call_buy['strike'],
-                            'Sell Call Strike': call_sell['strike'],
-                            'Sell Put Strike': put_sell['strike'],
-                            'Buy Put Strike': put_buy['strike'],
-                            'Underlying Price': call_buy['underlying_price'],
-                            'Box Quantity': box_quantity,
-                            'Spread Type': 'Short Box Spread'
-                        })
-
-                        # Deduct quantities from the legs
-                        remaining_quantities[call_buy.name] -= box_quantity
-                        remaining_quantities[call_sell.name] += box_quantity
-                        remaining_quantities[put_sell.name] += box_quantity
-                        remaining_quantities[put_buy.name] -= box_quantity
+                        # Deduct quantities for the legs used in the spread
+                        remaining_quantities[call.name] -= box_quantity * sign
+                        remaining_quantities[matching_call.name] += box_quantity * opposite_sign
+                        remaining_quantities[matching_put_sell.name] += box_quantity * opposite_sign
+                        remaining_quantities[matching_put_buy.name] -= box_quantity * sign
 
 
 # Test data with quantities that will produce both long and short spreads
