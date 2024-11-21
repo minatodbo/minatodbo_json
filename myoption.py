@@ -35,6 +35,7 @@ def identify_spread(client, ticker, maturity, calls, puts, remaining_quantities,
         sign = -1
         opposite_sign = 1
 
+    # For Long Box Spread
     for _, call in calls.iterrows():
         if remaining_quantities[call.name] * sign <= 0:
             continue  # Skip if no remaining quantity for this leg
