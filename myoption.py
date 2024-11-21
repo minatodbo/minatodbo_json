@@ -1,7 +1,7 @@
 import pandas as pd
 
-def find_long_box_spreads(df):
-    boxes = []  # List to store identified long box spreads
+def find_box_spreads(df):
+    boxes = []  # List to store identified box spreads
     remaining_quantities = df['quantity'].copy()  # Track the remaining quantities for each leg
 
     # Group by client, ticker, and maturity
@@ -12,7 +12,7 @@ def find_long_box_spreads(df):
         calls = group[group['option_type'] == 'Call'].sort_values('strike')
         puts = group[group['option_type'] == 'Put'].sort_values('strike')
 
-        # ---- Long Box Spread Identification ----
+        # ---- Identify Long Box Spreads ----
         for _, call_buy in calls.iterrows():
             if remaining_quantities[call_buy.name] <= 0:
                 continue  # Skip if no remaining long call quantity
@@ -40,7 +40,7 @@ def find_long_box_spreads(df):
                             abs(remaining_quantities[put_buy.name])
                         )
 
-                        # Add the long box spread to results
+                        # Add the long box spread to results if valid
                         if box_quantity > 0:
                             boxes.append({
                                 'Client': client,
@@ -61,21 +61,7 @@ def find_long_box_spreads(df):
                             remaining_quantities[put_sell.name] += box_quantity
                             remaining_quantities[put_buy.name] -= box_quantity
 
-    return boxes, remaining_quantities
-
-
-def find_short_box_spreads(df, remaining_quantities):
-    boxes = []  # List to store identified short box spreads
-
-    # Group by client, ticker, and maturity
-    grouped = df.groupby(['client', 'ticker', 'maturity'])
-
-    for (client, ticker, maturity), group in grouped:
-        # Separate calls and puts
-        calls = group[group['option_type'] == 'Call'].sort_values('strike')
-        puts = group[group['option_type'] == 'Put'].sort_values('strike')
-
-        # ---- Short Box Spread Identification ----
+        # ---- Identify Short Box Spreads ----
         for _, call_sell in calls.iterrows():
             if remaining_quantities[call_sell.name] >= 0:
                 continue  # Skip if no remaining short call quantity
@@ -103,7 +89,7 @@ def find_short_box_spreads(df, remaining_quantities):
                             abs(remaining_quantities[put_sell.name])
                         )
 
-                        # Add the short box spread to results
+                        # Add the short box spread to results if valid
                         if box_quantity > 0:
                             boxes.append({
                                 'Client': client,
@@ -124,20 +110,7 @@ def find_short_box_spreads(df, remaining_quantities):
                             remaining_quantities[put_sell.name] += box_quantity
                             remaining_quantities[put_buy.name] -= box_quantity
 
-    return boxes, remaining_quantities
-
-
-def find_box_spreads(df):
-    # Step 1: Find long box spreads
-    long_boxes, remaining_quantities = find_long_box_spreads(df)
-    
-    # Step 2: Find short box spreads based on remaining quantities after long spreads are found
-    short_boxes, _ = find_short_box_spreads(df, remaining_quantities)
-
-    # Combine the long and short boxes into one list
-    all_boxes = long_boxes + short_boxes
-
-    return pd.DataFrame(all_boxes)
+    return pd.DataFrame(boxes)
 
 
 # Test data with quantities that will produce both long and short spreads
