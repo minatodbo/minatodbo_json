@@ -9,37 +9,31 @@ def find_box_spreads(df):
     # Loop through each group
     for (client, ticker, maturity), group in grouped:
         # Separate calls and puts
-        calls = group[group['option_type'] == 'Call']
-        puts = group[group['option_type'] == 'Put']
-
-        # Sort by strike price for both calls and puts
-        calls = calls.sort_values('strike')
-        puts = puts.sort_values('strike')
+        calls = group[group['option_type'] == 'Call'].sort_values('strike')
+        puts = group[group['option_type'] == 'Put'].sort_values('strike')
 
         print(f"\nProcessing group: {client}, {ticker}, {maturity}")
         print(f"Calls:\n{calls[['strike', 'quantity']]}")
         print(f"Puts:\n{puts[['strike', 'quantity']]}")
 
-        # ---- Long Box Spread Identification ----
-        used_options = []  # Track options used in spreads
+        # Track used options
+        used_options = set()
 
+        # ---- Match Box Spreads ----
         for _, call_buy in calls.iterrows():
             if call_buy['quantity'] <= 0 or call_buy.name in used_options:
-                continue
+                continue  # Skip if not a long call or already used
 
-            # Match with a short call at a higher strike
+            # Match a short call with higher strike
             matching_calls = calls[(calls['strike'] > call_buy['strike']) & (calls['quantity'] < 0) & (~calls.index.isin(used_options))]
-
             for _, call_sell in matching_calls.iterrows():
                 # Match a short put at the lower strike
                 matching_put_sells = puts[(puts['strike'] == call_buy['strike']) & (puts['quantity'] < 0) & (~puts.index.isin(used_options))]
-
                 for _, put_sell in matching_put_sells.iterrows():
                     # Match a long put at the higher strike
                     matching_put_buys = puts[(puts['strike'] == call_sell['strike']) & (puts['quantity'] > 0) & (~puts.index.isin(used_options))]
-
                     for _, put_buy in matching_put_buys.iterrows():
-                        # Calculate box quantity
+                        # Calculate the box quantity as the minimum of the four legs
                         box_quantity = min(
                             call_buy['quantity'],
                             abs(call_sell['quantity']),
@@ -47,7 +41,7 @@ def find_box_spreads(df):
                             put_buy['quantity']
                         )
 
-                        if box_quantity >= 5:  # Minimum quantity for valid box spread
+                        if box_quantity >= 1:  # Valid box spread with no minimal restriction
                             boxes.append({
                                 'Client': client,
                                 'Ticker': ticker,
@@ -61,7 +55,8 @@ def find_box_spreads(df):
                                 'Spread Type': 'Long Box Spread'
                             })
 
-                            used_options.extend([call_buy.name, call_sell.name, put_sell.name, put_buy.name])
+                            # Mark options as used
+                            used_options.update([call_buy.name, call_sell.name, put_sell.name, put_buy.name])
 
                             # Update quantities
                             df.loc[call_buy.name, 'quantity'] -= box_quantity
@@ -69,24 +64,20 @@ def find_box_spreads(df):
                             df.loc[put_sell.name, 'quantity'] += box_quantity
                             df.loc[put_buy.name, 'quantity'] -= box_quantity
 
-        # ---- Short Box Spread Identification ----
         for _, call_sell in calls.iterrows():
             if call_sell['quantity'] >= 0 or call_sell.name in used_options:
-                continue
+                continue  # Skip if not a short call or already used
 
-            # Match with a long call at a higher strike
+            # Match a long call with higher strike
             matching_calls = calls[(calls['strike'] > call_sell['strike']) & (calls['quantity'] > 0) & (~calls.index.isin(used_options))]
-
             for _, call_buy in matching_calls.iterrows():
                 # Match a long put at the lower strike
                 matching_put_buys = puts[(puts['strike'] == call_sell['strike']) & (puts['quantity'] > 0) & (~puts.index.isin(used_options))]
-
                 for _, put_buy in matching_put_buys.iterrows():
                     # Match a short put at the higher strike
                     matching_put_sells = puts[(puts['strike'] == call_buy['strike']) & (puts['quantity'] < 0) & (~puts.index.isin(used_options))]
-
                     for _, put_sell in matching_put_sells.iterrows():
-                        # Calculate box quantity
+                        # Calculate the box quantity as the minimum of the four legs
                         box_quantity = min(
                             abs(call_sell['quantity']),
                             call_buy['quantity'],
@@ -94,7 +85,7 @@ def find_box_spreads(df):
                             abs(put_sell['quantity'])
                         )
 
-                        if box_quantity >= 5:  # Minimum quantity for valid box spread
+                        if box_quantity >= 1:  # Valid box spread with no minimal restriction
                             boxes.append({
                                 'Client': client,
                                 'Ticker': ticker,
@@ -108,7 +99,8 @@ def find_box_spreads(df):
                                 'Spread Type': 'Short Box Spread'
                             })
 
-                            used_options.extend([call_sell.name, call_buy.name, put_buy.name, put_sell.name])
+                            # Mark options as used
+                            used_options.update([call_sell.name, call_buy.name, put_buy.name, put_sell.name])
 
                             # Update quantities
                             df.loc[call_sell.name, 'quantity'] += box_quantity
