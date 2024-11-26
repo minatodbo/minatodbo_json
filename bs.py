@@ -43,10 +43,12 @@ def implied_volatility(S, K, T, r, market_price, option_type):
 
     # Use Brent's method to solve for the implied volatility
     try:
-        implied_vol = optimize.brentq(difference, 0.01, 2.0)  # Adjust bounds to ensure convergence
+        # Use reasonable bounds for volatility. For example, implied volatility is generally between 0.01 and 5.
+        implied_vol = optimize.brentq(difference, 0.01, 5.0)  # No hardcoding of 0.3, range from 0.01 to 5
     except ValueError:
-        implied_vol = 0.3  # Default to a reasonable value if optimization fails
-
+        # If optimization fails (it could happen in extreme edge cases), return a large value or error
+        implied_vol = np.nan
+    
     return implied_vol
 
 # Example usage
@@ -58,4 +60,7 @@ market_price = 970  # Market price of the option
 option_type = 'C'  # 'C' for call, 'P' for put
 
 iv = implied_volatility(S, K, T, r, market_price, option_type)
-print(f"Implied Volatility: {iv:.4f}")
+if np.isnan(iv):
+    print("Failed to compute implied volatility.")
+else:
+    print(f"Implied Volatility: {iv:.4f}")
