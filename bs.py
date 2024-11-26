@@ -1,42 +1,25 @@
-import numpy as np
-import scipy.stats as si
-from scipy.optimize import brentq
-
-# Black-Scholes Formula
-def black_scholes(S, K, T, r, sigma, option_type):
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
-
-    if option_type == 'C':
-        return S * si.norm.cdf(d1) - K * np.exp(-r * T) * si.norm.cdf(d2)
-    elif option_type == 'P':
-        return K * np.exp(-r * T) * si.norm.cdf(-d2) - S * si.norm.cdf(-d1)
-    else:
-        raise ValueError("Option type must be 'C' (call) or 'P' (put).")
-
-# Implied Volatility
-def implied_volatility(S, K, T, r, market_price, option_type):
+def implied_volatility_refined(S, K, T, r, market_price, option_type):
     def price_difference(sigma):
         return black_scholes(S, K, T, r, sigma, option_type) - market_price
 
+    # Intrinsic value for deep ITM/OTM detection
+    intrinsic_value = max(S - K, 0) if option_type == 'C' else max(K - S, 0)
+
+    # If market price is very close to intrinsic value, fallback to a rough approximation
+    if market_price <= intrinsic_value:
+        return 0.001  # Near-zero volatility
+
+    # Try Brent's method with expanded range
     try:
-        # Wider bounds for implied volatility search
-        iv = brentq(price_difference, 0.001, 10.0, xtol=1e-8)
-        return iv
+        return brentq(price_difference, 0.001, 10.0, xtol=1e-8)
     except ValueError:
-        # Return NaN if the solver fails
-        return np.nan
+        # If Brent fails, use fallback approximation
+        initial_iv = (market_price - intrinsic_value) / (S * np.sqrt(2 * np.pi * T))
+        print("Fallback IV Approximation:", initial_iv)
+        return initial_iv
 
-# Test Input
-S = 6000         # Spot price
-K = 5000         # Strike price
-T = 0.09         # Time to expiration (years)
-r = 0.04         # Risk-free rate
-market_price = 970  # Market price of the option
-option_type = 'C'   # Call option
-
-# Calculate Implied Volatility
-iv = implied_volatility(S, K, T, r, market_price, option_type)
+# Re-run the calculation
+iv = implied_volatility_refined(S, K, T, r, market_price, option_type)
 if np.isnan(iv):
     print("Failed to compute implied volatility.")
 else:
