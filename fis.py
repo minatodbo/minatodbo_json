@@ -1,58 +1,59 @@
 import numpy as np
 
-def fx_swap_npv_dual(spot_rate, forward_rate, notional_usd, usd_rate, eur_rate, tenor):
+def fx_swap_npv_lend_usd_borrow_eur(spot_rate, forward_points, notional_eur, usd_rate, eur_rate, tenor):
     """
-    Compute NPV of an FX Swap from both USD and EUR perspectives.
+    Compute NPV of an FX Swap where USD is lent and EUR is borrowed with fixed EUR notional.
     
     Parameters:
     - spot_rate (float): Spot FX rate (EUR/USD).
-    - forward_rate (float): Forward FX rate at maturity.
-    - notional_usd (float): Notional amount in USD.
-    - usd_rate (float): USD interest rate (annualized).
-    - eur_rate (float): EUR interest rate (annualized).
-    - tenor (float): Remaining tenor of the FX swap in days.
+    - forward_points (float): Forward points to add to the spot rate.
+    - notional_eur (float): Fixed EUR notional amount.
+    - usd_rate (float): USD interest rate (annualized, %).
+    - eur_rate (float): EUR interest rate (annualized, %).
+    - tenor (float): Remaining tenor in days.
     
     Returns:
-    - npv_usd (float): NPV of the FX swap in USD terms.
-    - npv_eur (float): NPV of the FX swap in EUR terms.
+    - NPV from USD perspective.
+    - NPV from EUR perspective.
     """
-    # Convert rates to decimals
-    usd_rate = usd_rate / 100
-    eur_rate = eur_rate / 100
+    # Convert annualized rates to decimals
+    usd_rate_decimal = usd_rate / 100
+    eur_rate_decimal = eur_rate / 100
     
-    # Compute the discount factors
-    days_in_year = 360  # Market convention
-    discount_usd = 1 / (1 + usd_rate * tenor / days_in_year)
-    discount_eur = 1 / (1 + eur_rate * tenor / days_in_year)
+    # Calculate forward rate
+    forward_rate = spot_rate + forward_points
     
-    # Compute cashflows
-    notional_eur = notional_usd / spot_rate  # Notional amount in EUR
-    usd_forward_cashflow = notional_usd  # USD cashflow at forward date
-    eur_forward_cashflow = notional_eur * forward_rate  # EUR cashflow at forward rate
-
-    # Present value of cashflows
-    pv_usd_cashflow = usd_forward_cashflow * discount_usd
-    pv_eur_cashflow = eur_forward_cashflow * discount_eur
-
-    # NPV from USD perspective
-    npv_usd = pv_usd_cashflow - (pv_eur_cashflow / spot_rate)
+    # Calculate USD amounts at t=0 and T
+    usd_amount_t0 = notional_eur * spot_rate
+    usd_amount_tT = notional_eur * forward_rate
     
-    # NPV from EUR perspective
-    npv_eur = (pv_usd_cashflow * spot_rate) - pv_eur_cashflow
+    # Discount factors
+    days_in_year = 360  # Market convention for FX swaps
+    df_usd = 1 / (1 + usd_rate_decimal * tenor / days_in_year)
+    df_eur = 1 / (1 + eur_rate_decimal * tenor / days_in_year)
+    
+    # Present value of USD cash flows
+    pv_usd_outflow = usd_amount_t0 * df_usd
+    pv_usd_inflow = usd_amount_tT * df_usd
+    
+    # Present value of EUR cash flows
+    pv_eur_outflow = notional_eur * df_eur
+    pv_eur_inflow = notional_eur * df_eur  # Same amount at t=0 and T
+    
+    # NPV calculations
+    npv_usd_perspective = pv_usd_inflow - pv_usd_outflow
+    npv_eur_perspective = pv_eur_inflow - pv_eur_outflow
+    
+    return npv_usd_perspective, npv_eur_perspective
 
-    return npv_usd, npv_eur
-
-# Example inputs
+# Example usage
 spot_rate = 1.0509          # Spot EUR/USD
-forward_rate = 1.0548       # Forward EUR/USD
-notional_usd = 100_000_000  # USD 100 million
-usd_rate = 4.59             # USD interest rate (annualized in %)
-eur_rate = 3.15             # EUR interest rate (annualized in %)
-tenor = 30                  # Remaining tenor in days (e.g., 30 days)
+forward_points = 0.0039     # Forward points (e.g., 0.39 in market quotes)
+notional_eur = 100_000_000  # EUR 100 million
+usd_rate = 4.59             # USD interest rate (% annualized)
+eur_rate = 3.15             # EUR interest rate (% annualized)
+tenor = 30                  # Remaining tenor in days
 
-# Compute NPV
-npv_usd, npv_eur = fx_swap_npv_dual(spot_rate, forward_rate, notional_usd, usd_rate, eur_rate, tenor)
-
-print(f"Net Present Value (NPV) of FX Swap:")
-print(f"From USD Perspective: ${npv_usd:,.2f}")
-print(f"From EUR Perspective: €{npv_eur:,.2f}")
+npv_usd, npv_eur = fx_swap_npv_lend_usd_borrow_eur(spot_rate, forward_points, notional_eur, usd_rate, eur_rate, tenor)
+print(f"NPV from USD perspective: ${npv_usd:,.2f}")
+print(f"NPV from EUR perspective: €{npv_eur:,.2f}")
