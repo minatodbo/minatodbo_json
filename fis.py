@@ -108,3 +108,38 @@ mtm_usd, mtm_eur = calculate_mtm_fx_swap(initial_spot, initial_forward, current_
 print(f"MTM (USD Perspective): ${mtm_usd:,.2f}")
 print(f"MTM (EUR Perspective): €{mtm_eur:,.2f}")
 
+from math import exp
+
+# Inputs
+notional_usd = 100_000_000  # USD notional
+initial_spot = 1.07  # Spot rate at inception
+initial_forward = 1.08  # Forward rate at inception
+current_spot = 1.05  # Current spot rate
+current_forward = 1.06  # Current forward rate
+usd_rate = 0.045  # Current USD annual rate (e.g., 4.5%)
+eur_rate = 0.031  # Current EUR annual rate (e.g., 3.1%)
+days_to_maturity = 30  # Days remaining to maturity
+original_tenor = 60  # Total tenor of the swap in days
+
+# Derived Inputs
+notional_eur = notional_usd / initial_spot  # EUR notional fixed at inception
+
+# Discount factors
+usd_discount = exp(-usd_rate * days_to_maturity / 360)
+eur_discount = exp(-eur_rate * days_to_maturity / 360)
+
+# USD leg value
+usd_leg_value = notional_usd * usd_discount  # USD notional discounted to present
+
+# EUR leg value
+eur_leg_value_in_eur = notional_eur * eur_discount  # EUR notional discounted to present
+eur_leg_value_in_usd = eur_leg_value_in_eur / current_spot  # Converted to USD
+
+# MTM (USD perspective)
+mtm = usd_leg_value - eur_leg_value_in_usd
+
+# Output
+print(f"USD Leg Value: {usd_leg_value:,.2f} USD")
+print(f"EUR Leg Value: {eur_leg_value_in_usd:,.2f} USD (converted from EUR)")
+print(f"Mark-to-Market (MTM): {mtm:,.2f} USD")
+
