@@ -1,67 +1,41 @@
+from datetime import timedelta
 import numpy as np
 
-def fx_swap_npv_lend_usd_borrow_eur(spot_rate, forward_points, notional_eur, usd_rate_bid, usd_rate_ask, eur_rate_bid, eur_rate_ask, tenor):
-    """
-    Compute NPV of an FX Swap where USD is lent and EUR is borrowed with fixed EUR notional.
-    
-    Parameters:
-    - spot_rate (float): Spot FX rate (EUR/USD).
-    - forward_points (float): Forward points to add to the spot rate.
-    - notional_eur (float): Fixed EUR notional amount.
-    - usd_rate_bid (float): USD bid interest rate (annualized, %).
-    - usd_rate_ask (float): USD ask interest rate (annualized, %).
-    - eur_rate_bid (float): EUR bid interest rate (annualized, %).
-    - eur_rate_ask (float): EUR ask interest rate (annualized, %).
-    - tenor (float): Remaining tenor in days.
-    
-    Returns:
-    - NPV from USD perspective.
-    - NPV from EUR perspective.
-    """
-    # Convert annualized rates to decimals
-    usd_rate_bid_decimal = usd_rate_bid / 100
-    usd_rate_ask_decimal = usd_rate_ask / 100
-    eur_rate_bid_decimal = eur_rate_bid / 100
-    eur_rate_ask_decimal = eur_rate_ask / 100
-    
-    # Calculate forward rate
-    forward_rate = spot_rate + forward_points / 10000  # Convert forward points to decimal
-    
-    # Calculate USD amounts at t=0 and T
-    usd_amount_t0 = notional_eur * spot_rate
-    usd_amount_tT = notional_eur * forward_rate
-    
-    # Discount factors
-    days_in_year = 360  # Market convention for FX swaps
-    df_usd_bid = 1 / (1 + usd_rate_bid_decimal * tenor / days_in_year)
-    df_usd_ask = 1 / (1 + usd_rate_ask_decimal * tenor / days_in_year)
-    df_eur_bid = 1 / (1 + eur_rate_bid_decimal * tenor / days_in_year)
-    df_eur_ask = 1 / (1 + eur_rate_ask_decimal * tenor / days_in_year)
-    
-    # Present value of USD cash flows
-    pv_usd_outflow = usd_amount_t0 * df_usd_ask
-    pv_usd_inflow = usd_amount_tT * df_usd_bid
-    
-    # Present value of EUR cash flows
-    pv_eur_outflow = notional_eur * df_eur_ask
-    pv_eur_inflow = notional_eur * df_eur_bid  # Same amount at t=0 and T
-    
-    # NPV calculations
-    npv_usd_perspective = pv_usd_inflow - pv_usd_outflow
-    npv_eur_perspective = pv_eur_inflow - pv_eur_outflow
-    
-    return npv_usd_perspective, npv_eur_perspective
+# Inputs
+initial_spot = 1.07  # Spot rate at t=0
+initial_forward = 1.08  # Forward rate agreed at t=0
+current_spot = 1.05  # Current spot rate
+current_forward = 1.06  # Current forward rate
+usd_rate = 4.30 / 100  # USD interest rate (annualized)
+eur_rate = 3.00 / 100  # EUR interest rate (annualized)
+notional_eur = 1_000_000  # EUR notional amount (constant)
+days_remaining = 30  # Time to maturity in days
+days_in_year = 360  # Day count convention
 
-# Example usage
-spot_rate = 1.0509          # Spot EUR/USD
-forward_points = 0.39       # Forward points (e.g., 0.39 in market quotes)
-notional_eur = 100_000_000  # EUR 100 million
-usd_rate_bid = 4.53         # USD bid interest rate (% annualized)
-usd_rate_ask = 4.59         # USD ask interest rate (% annualized)
-eur_rate_bid = 3.08         # EUR bid interest rate (% annualized)
-eur_rate_ask = 3.15         # EUR ask interest rate (% annualized)
-tenor = 30                  # Remaining tenor in days
+# Time factor for discounting
+time_to_maturity = days_remaining / days_in_year
 
-npv_usd, npv_eur = fx_swap_npv_lend_usd_borrow_eur(spot_rate, forward_points, notional_eur, usd_rate_bid, usd_rate_ask, eur_rate_bid, eur_rate_ask, tenor)
-print(f"NPV from USD perspective: ${npv_usd:,.2f}")
-print(f"NPV from EUR perspective: €{npv_eur:,.2f}")
+# Calculate initial USD notional at t=0
+initial_usd_notional = notional_eur * initial_spot
+
+# Calculate USD amount to be received at maturity (based on initial forward rate)
+usd_receivable_at_maturity = notional_eur * initial_forward
+
+# Current value of USD receivable (discounted at USD rate)
+usd_leg_value = usd_receivable_at_maturity / (1 + usd_rate * time_to_maturity)
+
+# Current value of EUR repayment (discounted at EUR rate)
+eur_leg_value = notional_eur / (1 + eur_rate * time_to_maturity)
+
+# Current EUR value of the USD leg (based on current forward rate)
+usd_leg_value_in_eur = usd_leg_value / current_forward
+
+# NPV calculation (EUR perspective)
+npv_eur = usd_leg_value_in_eur - eur_leg_value
+
+# NPV calculation (USD perspective)
+npv_usd = npv_eur * current_spot
+
+# Output results
+print("NPV (EUR perspective): {:.2f} EUR".format(npv_eur))
+print("NPV (USD perspective): {:.2f} USD".format(npv_usd))
