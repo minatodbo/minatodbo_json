@@ -1,8 +1,8 @@
 import pandas as pd
 from itertools import combinations
 
-# Sample DataFrame df
-# Assuming df has the columns: 'Quantity', 'Abs quantity', 'Ticker', 'Strike', 'Client', 'Option type'
+# Assuming df is your dataframe with columns:
+# 'Quantity', 'Abs quantity', 'Ticker', 'Strike', 'Client', 'Option type'
 
 # Create an empty list to store valid box spreads
 box_spread_counts = []
@@ -12,7 +12,7 @@ for (ticker, client), group in df.groupby(['Ticker', 'Client']):
     # Step 2: Get all unique strikes for the current client and ticker
     strikes = group['Strike'].unique()
 
-    # Step 3: Iterate over all pairs of strikes
+    # Step 3: Iterate over all pairs of strikes (combinations of 2 strikes)
     for strike_1, strike_2 in combinations(strikes, 2):
         # Step 4: Get the options data for both strikes (Call and Put)
         strike_data = group[group['Strike'].isin([strike_1, strike_2])]
@@ -35,10 +35,10 @@ for (ticker, client), group in df.groupby(['Ticker', 'Client']):
                 # Check if all quantities are identical
                 if abs_quantities[0] == abs_quantities[1] == abs_quantities[2] == abs_quantities[3]:
                     # Valid box spread found, record it
-                    box_spread_counts.append((client, ticker))
+                    box_spread_counts.append((client, ticker, (strike_1, strike_2)))
 
 # Step 8: Convert the list to a DataFrame
-box_spread_counts_df = pd.DataFrame(box_spread_counts, columns=['Client', 'Ticker'])
+box_spread_counts_df = pd.DataFrame(box_spread_counts, columns=['Client', 'Ticker', 'Strike Pair'])
 
 # Step 9: Group by Client and Ticker and count occurrences of box spreads
 box_spread_summary = box_spread_counts_df.groupby(['Client', 'Ticker']).size().reset_index(name='Box Spread Count')
