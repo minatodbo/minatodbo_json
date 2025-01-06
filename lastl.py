@@ -1,7 +1,7 @@
 import pandas as pd
 from itertools import combinations
 
-# Assuming df is your dataframe with columns:
+# Assuming df is your dataframe with the columns:
 # 'Quantity', 'Abs quantity', 'Ticker', 'Strike', 'Client', 'Option type'
 
 # Create an empty list to store valid box spreads
@@ -35,10 +35,10 @@ for (ticker, client), group in df.groupby(['Ticker', 'Client']):
                 # Check if all quantities are identical
                 if abs_quantities[0] == abs_quantities[1] == abs_quantities[2] == abs_quantities[3]:
                     # Valid box spread found, record it
-                    box_spread_counts.append((client, ticker, (strike_1, strike_2)))
+                    box_spread_counts.append((client, ticker))
 
 # Step 8: Convert the list to a DataFrame
-box_spread_counts_df = pd.DataFrame(box_spread_counts, columns=['Client', 'Ticker', 'Strike Pair'])
+box_spread_counts_df = pd.DataFrame(box_spread_counts, columns=['Client', 'Ticker'])
 
 # Step 9: Group by Client and Ticker and count occurrences of box spreads
 box_spread_summary = box_spread_counts_df.groupby(['Client', 'Ticker']).size().reset_index(name='Box Spread Count')
