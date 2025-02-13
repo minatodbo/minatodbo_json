@@ -154,3 +154,42 @@ fig.update_layout(
     template="plotly_dark"
 )
 fig.show()
+
+
+from scipy.optimize import minimize
+
+def cir_log_likelihood(params, rates, dt):
+    """
+    Compute the negative log-likelihood for CIR model.
+
+    Parameters:
+        params: Tuple (kappa, theta, sigma) to be estimated
+        rates: Historical interest rate data (Pandas Series)
+        dt: Time step (e.g., 1/252 for daily data)
+
+    Returns:
+        Negative log-likelihood value
+    """
+    kappa, theta, sigma = params
+    n = len(rates)
+    ll = 0.0
+
+    for t in range(1, n):
+        mean = rates[t-1] + kappa * (theta - rates[t-1]) * dt
+        variance = sigma**2 * rates[t-1] * dt
+        ll += -0.5 * np.log(2 * np.pi * variance) - 0.5 * ((rates[t] - mean) ** 2 / variance)
+
+    return -ll  # Negative for minimization
+
+# Initial guess for parameters
+initial_params = [0.1, np.mean(daily_yields), np.std(np.diff(daily_yields))]
+
+# Minimize the negative log-likelihood
+res = minimize(cir_log_likelihood, initial_params, args=(daily_yields, 1/252), method='L-BFGS-B')
+
+# Extract estimated parameters
+kappa_mle, theta_mle, sigma_mle = res.x
+
+print(f"MLE Estimated kappa: {kappa_mle:.4f}")
+print(f"MLE Estimated theta: {theta_mle:.4%}")
+print(f"MLE Estimated sigma: {sigma_mle:.4%}")
