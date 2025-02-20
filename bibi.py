@@ -261,3 +261,40 @@ frequency = 2  # U.S. Treasuries pay semi-annually
 
 ytm = compute_ytm(price, face_value, coupon_rate, years_to_maturity, frequency)
 print(f"Computed Yield to Maturity (YTM): {ytm:.4%}")  # Convert to percentage format
+
+
+import numpy as np
+from scipy.optimize import brentq
+
+# Given Data
+price = 100.41  # Market price
+face_value = 100  # Par value
+coupon_rate = 4.875 / 100  # Annual coupon rate (4.875%)
+years_to_maturity = 0.7726  # Time to maturity in years
+frequency = 2  # Semi-annual payments
+
+# Compute Coupon and Number of Periods
+coupon = (coupon_rate / frequency) * face_value  # Semi-annual coupon
+N = years_to_maturity * frequency  # Total number of periods (fractional)
+integer_N = int(N)  # Whole number of periods
+fractional_N = N - integer_N  # Remaining fractional period
+
+# Define Bond Price Function
+def bond_price_ytm(ytm):
+    ytm_per_period = ytm / frequency  # Convert to semi-annual rate
+    
+    # Present value of all full coupon payments
+    pv_coupons = sum([coupon / (1 + ytm_per_period) ** t for t in range(1, integer_N + 1)])
+    
+    # Discounting for fractional period (last coupon + face value)
+    discount_factor = (1 + ytm_per_period) ** (integer_N + fractional_N)
+    pv_face_value = (coupon + face_value) / discount_factor
+    
+    return pv_coupons + pv_face_value - price  # Difference from market price
+
+# Solve for YTM using Brent's Method (Higher Precision)
+ytm_solution = brentq(bond_price_ytm, 0.01, 0.1)  # Bounds between 1% and 10%
+ytm_annualized = ytm_solution * 100  # Convert to percentage
+
+print(f"Computed YTM: {ytm_annualized:.5f}%")
+
