@@ -285,7 +285,14 @@ def bond_price_ytm(ytm):
     
     # Present value of all full coupon payments
     pv_coupons = sum([coupon / (1 + ytm_per_period) ** t for t in range(1, integer_N + 1)])
+
+
+
+
     
+
+    
+
     # Discounting for fractional period (last coupon + face value)
     discount_factor = (1 + ytm_per_period) ** (integer_N + fractional_N)
     pv_face_value = (coupon + face_value) / discount_factor
@@ -296,5 +303,115 @@ def bond_price_ytm(ytm):
 ytm_solution = brentq(bond_price_ytm, 0.01, 0.1)  # Bounds between 1% and 10%
 ytm_annualized = ytm_solution * 100  # Convert to percentage
 
+
+
+
+
 print(f"Computed YTM: {ytm_annualized:.5f}%")
 
+
+
+here 
+
+
+import numpy as np
+from scipy.optimize import brentq
+
+def bond_price_dirty(ytm, face_value, coupon, years_to_maturity, frequency):
+    """
+    Computes the theoretical dirty price of a bond given a periodic yield (r = ytm/frequency),
+    using the formula:
+    
+    P_dirty = sum_{i=1}^{floor(N)} [coupon / (1 + r)^i] + (coupon + face_value) / (1 + r)^N
+
+    Parameters:
+        ytm: periodic yield (not annualized)
+        face_value: par value of the bond (e.g., 100)
+        coupon: coupon payment per period
+        years_to_maturity: time to maturity in years (can be fractional)
+        frequency: number of coupon payments per year
+
+    Returns:
+        The theoretical dirty price.
+    """
+    N = years_to_maturity * frequency  # total number of coupon periods (fractional allowed)
+    integer_N = int(np.floor(N))
+    fractional_N = N - integer_N
+
+    # Present value of coupons for the full periods
+    pv_coupons = sum([coupon / (1 + ytm)**i for i in range(1, integer_N + 1)])
+
+    # Discounting the final cash flow (coupon + face value) for the fractional period:
+    # We discount it for the entire N periods (which is fractional)
+    pv_final = (coupon + face_value) / (1 + ytm)**(N)
+
+    price_dirty = pv_coupons + pv_final
+    return price_dirty
+
+def compute_ytm_dirty(price_dirty, face_value, coupon, years_to_maturity, frequency):
+    """
+    Computes the Yield to Maturity (annualized) from the dirty price by solving the bond price equation.
+
+    Parameters:
+        price_dirty: the market dirty price of the bond
+        face_value: par value of the bond
+        coupon: coupon payment per period
+        years_to_maturity: time to maturity in years (fractional allowed)
+        frequency: number of coupon payments per year
+
+    Returns:
+        Annualized YTM as a decimal.
+    """
+    # Define the function whose root we need (difference between calculated and market price)
+    f = lambda r: bond_price_dirty(r, face_value, coupon, years_to_maturity, frequency) - price_dirty
+    
+    # Solve for the periodic yield r using Brent's method.
+    # We choose bounds that make sense (e.g., between 0% and 20% periodic yield)
+    r_solution = brentq(f, 0.000001, 0.2)
+    
+    # Convert periodic yield to annualized yield
+    ytm_annualized = r_solution * frequency
+    return ytm_annualized
+
+def compute_ytm_clean(price_clean, accrued_interest, face_value, coupon, years_to_maturity, frequency):
+    """
+    Computes the annualized YTM using the clean price by first converting it to the dirty price.
+
+    Parameters:
+        price_clean: the market clean price of the bond
+        accrued_interest: accrued interest (AI)
+        face_value: par value of the bond
+        coupon: coupon payment per period
+        years_to_maturity: time to maturity in years (fractional allowed)
+        frequency: number of coupon payments per year
+
+    Returns:
+        Annualized YTM as a decimal.
+    """
+    # Convert clean price to dirty price
+    price_dirty = price_clean + accrued_interest
+    return compute_ytm_dirty(price_dirty, face_value, coupon, years_to_maturity, frequency)
+
+# ----- Example Bond Details -----
+face_value = 100              # Par value
+annual_coupon_rate = 0.04875  # 4.875% annual coupon rate
+frequency = 2                 # Semiannual payments
+
+coupon = (annual_coupon_rate * face_value) / frequency  # Coupon per period = 2.4375
+
+# Bond details:
+# Clean Price: 100.41, Dirty Price: 101.52 (from Bloomberg)
+price_clean = 100.41
+price_dirty = 101.52
+years_to_maturity = 0.7726    # 0.7726 years remaining
+
+# For this example, assume accrued interest is:
+accrued_interest = price_dirty - price_clean  # = 1.11
+
+# ----- Compute YTM Using Dirty Price -----
+ytm_from_dirty = compute_ytm_dirty(price_dirty, face_value, coupon, years_to_maturity, frequency)
+print("Computed YTM from Dirty Price: {:.5f}%".format(ytm_from_dirty * 100))
+
+# ----- Compute YTM Using Clean Price -----
+ytm_from_clean = compute_ytm_clean(price_clean, accrued_interest, face_value, coupon, years_to_maturity, frequency)
+print("Computed YTM from Clean Price: {:.5f}%".format(ytm_from_clean * 100))
