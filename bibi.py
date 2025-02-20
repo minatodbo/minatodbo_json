@@ -190,6 +190,74 @@ res = minimize(cir_log_likelihood, initial_params, args=(daily_yields, 1/252), m
 # Extract estimated parameters
 kappa_mle, theta_mle, sigma_mle = res.x
 
+
 print(f"MLE Estimated kappa: {kappa_mle:.4f}")
 print(f"MLE Estimated theta: {theta_mle:.4%}")
 print(f"MLE Estimated sigma: {sigma_mle:.4%}")
+
+
+
+
+
+
+import numpy as np
+from scipy.optimize import fsolve
+
+def bond_price(ytm, face_value, coupon_rate, years_to_maturity, price, frequency=2):
+    """
+    Bond pricing formula used in YTM computation.
+    
+    Parameters:
+        ytm : float  -> Yield to Maturity (as a decimal, per year)
+        face_value : float  -> Par value of the bond (typically $1,000 for Treasuries)
+        coupon_rate : float  -> Annual coupon rate (e.g., 0.03 for 3%)
+        years_to_maturity : float  -> Years remaining until maturity
+        price : float  -> Current bond price in the market
+        frequency : int  -> Number of coupon payments per year (default = 2 for U.S. Treasuries)
+
+    Returns:
+        Difference between computed bond price and actual market price (for fsolve)
+    """
+    periods = int(years_to_maturity * frequency)  # Total number of periods
+    coupon = (coupon_rate / frequency) * face_value  # Coupon per period
+    ytm_per_period = ytm / frequency  # Adjust YTM for frequency
+
+    # Present value of coupon payments
+    pv_coupons = sum([coupon / (1 + ytm_per_period) ** t for t in range(1, periods + 1)])
+
+    # Present value of face value
+    pv_face_value = face_value / (1 + ytm_per_period) ** periods
+
+    return pv_coupons + pv_face_value - price
+
+def compute_ytm(price, face_value, coupon_rate, years_to_maturity, frequency=2):
+    """
+    Computes Yield to Maturity (YTM) using numerical root finding.
+    
+    Parameters:
+        price : float  -> Current bond price in USD
+        face_value : float  -> Par value of the bond (typically $1,000)
+        coupon_rate : float  -> Annual coupon rate as a decimal (e.g., 0.03 for 3%)
+        years_to_maturity : float  -> Number of years until maturity
+        frequency : int  -> Number of coupon payments per year (default = 2 for U.S. Treasuries)
+
+    Returns:
+        ytm : float  -> Yield to Maturity as a decimal (e.g., 0.035 for 3.5%)
+    """
+    # Initial guess for YTM (use current yield as a starting point)
+    initial_guess = coupon_rate
+
+    # Solve for YTM using fsolve
+    ytm_solution = fsolve(bond_price, initial_guess, args=(face_value, coupon_rate, years_to_maturity, price, frequency))
+
+    return ytm_solution[0]  # Extract solution
+
+# --- Example: Compute YTM for a U.S. Treasury Bond ---
+price = 970  # Market price of the bond ($970)
+face_value = 1000  # Par value ($1,000 for Treasuries)
+coupon_rate = 0.03  # 3% annual coupon rate (e.g., a 3% Treasury)
+years_to_maturity = 5  # 5 years to maturity
+frequency = 2  # U.S. Treasuries pay semi-annually
+
+ytm = compute_ytm(price, face_value, coupon_rate, years_to_maturity, frequency)
+print(f"Computed Yield to Maturity (YTM): {ytm:.4%}")  # Convert to percentage format
