@@ -136,3 +136,72 @@ def compute_adjusted_fee(df,
 #  - signal       : +1/0/–1 directional flags
 #  - memory       : consecutive-day counts of same nonzero signal
 #  - fee_adjusted : final smoothed & regime‑aware fee
+
+
+
+import pandas as pd
+import numpy as np
+
+def build_fee_model(df,
+                    fee_window=20,
+                    price_window=20,
+                    signal_window=3,
+                    z_thresh=2,
+                    base_weight_high=0.7,
+                    alpha_smooth=0.02,
+                    alpha_regime=0.08):
+    """
+    Assumes df has columns: ['stock', 'date', 'price', 'fee', 'fee_second']
+    Returns df with additional columns, including the smoothed fee prediction: fee_pred
+    """
+    df = df.sort_values(['stock', 'date']).copy()
+    
+    # --- Compute return and rolling volatility of price ---
+    df['return'] = df.groupby('stock')['price'].pct_change()
+    df['price_vol'] = df.groupby('stock')['return'].transform(lambda x: x.rolling(price_window).std())
+    df['price_mean'] = df.groupby('stock')['price'].transform(lambda x: x.rolling(price_window).mean())
+
+    # --- Rolling statistics for fee ---
+    df['fee_mean'] = df.groupby('stock')['fee'].transform(lambda x: x.rolling(fee_window).mean())
+    df['fee_vol'] = df.groupby('stock')['fee'].transform(lambda x: x.rolling(fee_window).std())
+    
+    # --- Fee z-score for regime awareness ---
+    df['fee_z'] = (df['fee'] - df['fee_mean']) / df['fee_vol']
+
+    # --- Blended base fee ---
+    df['fee_base'] = np.where(
+        df['fee_second'] > df['fee'],
+        base_weight_high * df['fee_second'] + (1 - base_weight_high) * df['fee'],
+        0.5 * df['fee_second'] + 0.5 * df['fee']
+    )
+
+    # --- Signal definition: vol up + price down = increase; vol down + price up = decrease ---
+    cond_up = (df['return'] < 0) & (df['price_vol'] > df['price_vol'].rolling(price_window).median())
+    cond_down = (df['return'] > 0) & (df['price_vol'] < df['price_vol'].rolling(price_window).median())
+    df['signal'] = 0
+    df.loc[cond_up, 'signal'] = 1
+    df.loc[cond_down, 'signal'] = -1
+
+    # --- Count persistence of directional signal ---
+    def count_signal(series):
+        mem = np.zeros_like(series, dtype=int)
+        count = 0
+        prev = 0
+        for i, s in enumerate(series):
+            if s != 0 and s == prev:
+                count += 1
+            elif s != 0:
+                count = 1
+            else:
+                count = 0
+            mem[i] = count
+            prev = s if s != 0 else 0
+        return mem
+
+    df['memory'] = df.groupby('stock')['signal'].transform(lambda x: count_signal(x.values))
+
+    # --- Adjustment logic ---
+    use_regime = (df['memory'] >= signal_window) | (df['fee_z'] > z_thresh)
+    df['fee_pred'] = df['fee_base'] * (1 + np.where(use_regime, alpha_regime, alpha_smooth) * df['signal'])
+
+    return df
